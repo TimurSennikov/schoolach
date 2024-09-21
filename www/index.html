@@ -1,0 +1,207 @@
+<style>
+    body{
+        text-align: center;
+        background-color:teal;
+    }
+
+    img{
+        margin: 15px;
+
+    }
+
+    .narrow{
+        width: 70px;
+    }
+
+    #threads{
+        text-align: center;
+    }
+
+    #info{
+        text-align: left;
+        position: absolute;
+        left: 1.5vw;
+        top: 3;
+    }
+
+    #info_right{
+        text-align: right;
+        position: absolute;
+        left: 86vw;
+        top: 3;
+    }
+
+    .theme{
+        color: azure;
+    }
+
+    .subtheme{
+        color: gray;
+    }
+</style>
+
+<html>
+    <head>
+        <h1>sch00.hk</h1>
+
+        <form>
+            <label for="tname">Создать тред:</label><br>
+            <input type="text" id="tname" name="tname"><br>
+            <button id="newt">Подтвердить!</button>
+        </form>
+
+        <img src="logo.gif"></img>
+
+        <div id="threads">
+            <h1 class="theme">Тема</h1>
+            <h3 class="subtheme">Подтекст</h3>
+            <button onclick="goto()">Перейти</button>
+        </div>
+
+        <div id="info">
+            <h5 class="narrow" id="infotext">
+                Добро пожаловать на анонач!
+                Тут вы можете спокойно оставить отзывы о школе 134 и не только!
+                Сайт разделен на темы, которые можно создать самому
+            </h5>
+        </div>
+
+        <div class="narrow" id="info_right">
+            <h5 class="narrow" id="infotext">
+                Тред (англ. thread, буквально — нить) в интернет-форумах, блогах, списках рассылки,
+                конференциях — последовательность ответов на сообщение, то есть «ветвь обсуждения».
+            </h5>
+        </div>
+
+    </head>
+
+    <body>
+        <button onclick="update()" id="udpateB">Обновить (автообновление раз в 60 сек.)</button>
+    </body>
+</html>
+
+<script>
+    const base = "http://localhost:6675";
+
+    var opened = [];
+
+    function rgb(id){
+        let r = 0;
+        let g = 0;
+        let b = 0;
+
+        let dir = 1;
+
+        function tick(){
+            r += dir / Math.random();
+            g += dir / Math.random();
+            b += dir / Math.random();
+
+            if(r > 255 && g > 255 && b > 255){dir = -1;}
+            if(r < 0 && g < 0 && b < 0){dir = 1;}
+
+            document.getElementById(id).style.color = +`rgb(${r}, ${g}, ${b})`;
+        }
+
+        return tick;
+    }
+
+    function jumpto(location){
+        window.location = `${base}/thread?${location}`;
+    } // todo
+
+    function submitenter(e){
+        console.log(event);
+        event.preventDefault();
+
+        let name = document.getElementById("tname").value;
+        fetch(`${base}/newthread?${name}`);
+    }
+
+    async function show(name){
+        let elem = document.getElementById(name);
+
+        let messages = await (await fetch(`${base}/thread?${name}`)).json();
+
+        if(messages.length == 0){alert("Тред пуст.");}
+
+        if(!opened.includes(name)){
+            messages.forEach((message) => {
+                message.thread = decodeURIComponent(message.thread);
+                message.text = decodeURIComponent(message.text);
+
+                console.log(message);
+                let e = document.createElement("h4");
+                e.innerHTML = message.text;
+                elem.appendChild(e);
+            });
+
+            opened.push(name);
+
+            let input = document.createElement("input");
+            let button = document.createElement("button");
+
+            input.type = "text";
+            button.onclick = () => {post(name, input.value); update();}
+            button.innerHTML = `Отправить в ${name}`;
+
+            elem.appendChild(input);
+            elem.appendChild(button);
+        }
+        else{while(elem.firstChild){elem.removeChild(elem.firstChild);} opened.splice(opened.indexOf(name), 1);}
+    }
+
+    async function update(){
+        let res = await (await fetch(`${base}/threads`)).json();
+
+        let threads = document.getElementById("threads");
+        while(threads.firstChild){threads.removeChild(threads.firstChild);}
+
+        res.forEach((elem) => {
+            let div = document.createElement("div");
+            let h1 = document.createElement("h1");
+            let h3 = document.createElement("h3");
+            let button = document.createElement("button");
+            let msgdiv = document.createElement("div");
+
+            msgdiv.id = elem.name;
+
+            button.onclick = () => {show(elem.name);};
+
+            button.innerHTML = `Открыть ${elem.name}`;
+
+            h1.className = "theme";
+            h3.className = "subtheme";
+
+            h1.innerHTML = elem.name;
+            h3.innerHTML = "Ветка юзверя.";
+
+            div.appendChild(h1);
+            div.appendChild(h3);
+            div.appendChild(msgdiv);
+            div.appendChild(button);
+
+            threads.appendChild(div);
+        });
+    }
+
+    async function post(thread, msg){
+        await fetch(`${base}/send`, {
+            method: "POST",
+
+            headers: {'Content-Type': 'application/json'},
+
+            body: JSON.stringify({
+                thread: thread,
+                text: msg
+            })
+        });
+    }
+
+    document.addEventListener("DOMContentLoaded", () => {
+        document.getElementById("newt").onclick = submitenter;
+
+        setInterval(rgb("infotext"), 10);
+        setInterval(update, 60000);
+    });
+</script>
